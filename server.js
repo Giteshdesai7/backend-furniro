@@ -12,36 +12,101 @@ import contactRouter from "./routes/contactRoute.js"
 import blogRouter from "./routes/blogRoute.js"
 import likeRouter from "./routes/likeRoute.js"
 
+// Global error handling
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('Unhandled Rejection:', err);
+    process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT received. Shutting down gracefully...');
+    process.exit(0);
+});
+
 //app config
-const app=express();
-const port=process.env.PORT || 4000;
+const app = express();
+const port = process.env.PORT || 4000;
 
 //middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' ? 
+        ['https://your-frontend-domain.com'] : 
+        ['http://localhost:5173', 'http://localhost:5174'],
+    credentials: true
+}));
 
-app.use(express.json());
-app.use(cors());
+// Health check endpoint
+app.get("/health", (req, res) => {
+    res.status(200).json({ 
+        status: "OK", 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
 
-//db connection
-connectDB();
+//db connection with retry logic
+connectDB().catch(err => {
+    console.error('Database connection failed:', err);
+    process.exit(1);
+});
 
-//api endpoints
-app.use("/api/product", productRouter)
-app.use("/images", express.static('uploads'))
-app.use("/api/user", userRouter)
-app.use("/api/cart", cartRouter)
-app.use("/api/order", orderRouter)
-app.use("/api/sales", salesRouter)
-app.use("/api/newsletter", newsletterRouter)
-app.use("/api/contact", contactRouter)
-app.use("/api/blog", blogRouter)
-app.use("/api/likes", likeRouter)
+//api endpoints with error handling
+app.use("/api/product", productRouter);
+app.use("/images", express.static('uploads'));
+app.use("/api/user", userRouter);
+app.use("/api/cart", cartRouter);
+app.use("/api/order", orderRouter);
+app.use("/api/sales", salesRouter);
+app.use("/api/newsletter", newsletterRouter);
+app.use("/api/contact", contactRouter);
+app.use("/api/blog", blogRouter);
+app.use("/api/likes", likeRouter);
 
-app.get("/", (req, res)=> {
-    res.send("API Working")
-})
+app.get("/", (req, res) => {
+    res.json({ 
+        message: "Furniro API Working", 
+        status: "success",
+        timestamp: new Date().toISOString()
+    });
+});
 
-app.listen(port, ()=> {
-    console.log(`Server Started on http://localhost:${port}`)
-})
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error('Global error handler:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message
+    });
+});
 
-//mongodb+srv://giteshdesai7:9610996364Gd@cluster0.dqwmi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+// 404 handler
+app.use('*', (req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Route ${req.originalUrl} not found`
+    });
+});
+
+const server = app.listen(port, () => {
+    console.log(`🚀 Server Started on port ${port}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📅 Started at: ${new Date().toISOString()}`);
+});
+
+// Server timeout configuration
+server.timeout = 30000; // 30 seconds
+server.keepAliveTimeout = 65000; // 65 seconds
+server.headersTimeout = 66000; // 66 seconds
