@@ -1,6 +1,6 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
-import foodModel from "../models/foodModel.js";
+import productModel from "../models/productModel.js";
 import Stripe from "stripe";
 import { updateSales } from "./salesController.js";
 
@@ -19,11 +19,11 @@ const placeOrder=  async(req, res)=>{
     try {
         // Check if there's sufficient stock for all items
         for (const item of req.body.items) {
-            const food = await foodModel.findById(item._id);
-            if (!food || food.stock < item.quantity) {
+            const product = await productModel.findById(item._id);
+            if (!product || product.stock < item.quantity) {
                 return res.json({
                     success: false, 
-                    message: `Insufficient stock for ${food ? food.name : 'an item'}`
+                    message: `Insufficient stock for ${product ? product.name : 'an item'}`
                 });
             }
         }
@@ -32,14 +32,15 @@ const placeOrder=  async(req, res)=>{
             userId:req.body.userId,
             items:req.body.items,
             amount:req.body.amount,
-            address:req.body.address
+            address:req.body.address,
+            paymentMethod:req.body.paymentMethod || "prepaid"
         })
 
         await newOrder.save();
         
         // Decrease stock for each item ordered
         for (const item of req.body.items) {
-            await foodModel.findByIdAndUpdate(item._id, {
+            await productModel.findByIdAndUpdate(item._id, {
                 $inc: { stock: -item.quantity }
             });
         }
@@ -48,39 +49,51 @@ const placeOrder=  async(req, res)=>{
             cartData:{}
         });
 
-        const line_items = req.body.items.map((item)=>({
-            price_data:{
-                currency:"inr",
-                product_data:{
-                    name:item.name
+        // Handle Cash on Delivery orders differently
+        if (req.body.paymentMethod === "cash-on-delivery") {
+            // For COD orders, mark as paid and update sales immediately
+            await orderModel.findByIdAndUpdate(newOrder._id, {payment: true});
+            await updateSales(req.body.amount);
+            
+            res.json({
+                success: true, 
+                orderId: newOrder._id,
+                paymentMethod: "cash-on-delivery",
+                message: "Order placed successfully! Payment will be collected on delivery."
+            });
+        } else {
+            // For prepaid orders, proceed with Stripe payment
+            const line_items = req.body.items.map((item)=>({
+                price_data:{
+                    currency:"inr",
+                    product_data:{
+                        name:item.name
+                    },
+                    unit_amount:item.price*100*1
                 },
-                unit_amount:item.price*100*1
-            },
-            quantity:item.quantity
-        }))
+                quantity:item.quantity
+            }))
 
-
-        line_items.push({
-            price_data:{
-                currency:"inr",
-                product_data:{
-                    name:"Delivery Charges"
+            line_items.push({
+                price_data:{
+                    currency:"inr",
+                    product_data:{
+                        name:"Shipping Charges"
+                    },
+                    unit_amount:1*100*45
                 },
-                unit_amount:1*100*45
-            },
-            quantity:1
-        })
+                quantity:1
+            })
 
+            const session = await stripe.checkout.sessions.create({
+                line_items:line_items,
+                mode:"payment",
+                success_url:`${frontend_url}/verify?success=true&orderId=${newOrder._id}`,
+                cancel_url:`${frontend_url}/verify?success=false&orderId=${newOrder._id}`,
+            })
 
-        const session = await stripe.checkout.sessions.create({
-            line_items:line_items,
-            mode:"payment",
-            success_url:`${frontend_url}/verify?success=true&orderId=${newOrder._id}`,
-            cancel_url:`${frontend_url}/verify?success=false&orderId=${newOrder._id}`,
-        })
-
-
-        res.json({success:true, session_url:session.url})
+            res.json({success:true, session_url:session.url})
+        }
     } catch (error) {
         console.log(error);
         res.json({success:false, message:"Error"})

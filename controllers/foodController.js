@@ -1,15 +1,15 @@
-import foodModel from "../models/foodModel.js";
+import productModel from "../models/productModel.js";
 import fs from 'fs'
 
 
-//add food item
+//add product item
 
-const addFood = async (req, res)=>{
+const addProduct = async (req, res)=>{
 
 
     let image_filename =`${req.file.filename}`;
 
-    const food = new foodModel({
+    const product = new productModel({
         name:req.body.name,
         description:req.body.description,
         price:req.body.price,
@@ -19,8 +19,8 @@ const addFood = async (req, res)=>{
     })
 
     try {
-        await food.save();
-        res.json({success:true, message:"Food Added"})
+        await product.save();
+        res.json({success:true, message:"Product Added"})
     } catch (error) {
         console.log(error)
         res.json({success:false, message:"Error"})
@@ -28,11 +28,11 @@ const addFood = async (req, res)=>{
 
 }
 
-//all food list
-const listFood= async (req, res)=> {
+//all product list
+const listProduct= async (req, res)=> {
     try {
-        const foods= await foodModel.find({});
-        res.json({success:true, data:foods})
+        const products= await productModel.find({});
+        res.json({success:true, data:products})
         
     } catch (error) {
         console.log(error);
@@ -43,14 +43,14 @@ const listFood= async (req, res)=> {
 
 }
 
-//remove food item
-const removeFood = async (req, res)=>{
+//remove product item
+const removeProduct = async (req, res)=>{
     try {
-        const food=await foodModel.findById(req.body.id);
-        fs.unlink(`uploads/${food.image}`, ()=> {})
+        const product=await productModel.findById(req.body.id);
+        fs.unlink(`uploads/${product.image}`, ()=> {})
 
-        await foodModel.findByIdAndDelete(req.body.id);
-        res.json({success:true, message:"Food Removed"})
+        await productModel.findByIdAndDelete(req.body.id);
+        res.json({success:true, message:"Product Removed"})
     } catch (error) {
         console.log(error);
         res.json({success:false, message:"Error"})
@@ -60,7 +60,7 @@ const removeFood = async (req, res)=>{
 //update stock
 const updateStock = async (req, res)=>{
     try {
-        await foodModel.findByIdAndUpdate(req.body.id, {stock: req.body.stock});
+        await productModel.findByIdAndUpdate(req.body.id, {stock: req.body.stock});
         res.json({success:true, message:"Stock Updated"})
     } catch (error) {
         console.log(error);
@@ -71,10 +71,10 @@ const updateStock = async (req, res)=>{
 //decrease stock when ordered
 const decreaseStock = async (req, res)=>{
     try {
-        const food = await foodModel.findById(req.body.id);
-        if(food.stock >= req.body.quantity) {
-            food.stock -= req.body.quantity;
-            await food.save();
+        const product = await productModel.findById(req.body.id);
+        if(product.stock >= req.body.quantity) {
+            product.stock -= req.body.quantity;
+            await product.save();
             res.json({success:true, message:"Stock Updated"})
         } else {
             res.json({success:false, message:"Insufficient Stock"})
@@ -85,4 +85,4 @@ const decreaseStock = async (req, res)=>{
     }
 }
 
-export {addFood, listFood, removeFood, updateStock, decreaseStock}
+export {addProduct, listProduct, removeProduct, updateStock, decreaseStock}

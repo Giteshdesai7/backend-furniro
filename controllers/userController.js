@@ -69,4 +69,20 @@ const registerUser = async(req, res)=>{
     }
 }
 
-export {loginUser, registerUser};
+//get user data
+const getUserData = async(req, res)=>{
+    const {token} = req.headers;
+    console.log("getUserData called with token:", token);
+    try {
+        const user = jwt.verify(token, process.env.JWT_SECRET);
+        console.log("JWT verified, user ID:", user.id);
+        const userData = await userModel.findById(user.id).select('-password');
+        console.log("User data found:", userData);
+        res.json({success:true, data:userData});
+    } catch (error) {
+        console.log("Error in getUserData:", error);
+        res.json({success:false, message:"Error"});
+    }
+}
+
+export {loginUser, registerUser, getUserData};
