@@ -1,29 +1,17 @@
 {
-  "name": "furniro-backend",
+  "name": "backend",
   "version": "1.0.0",
   "main": "server.js",
   "type": "module",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "echo 'No build step required'",
-    "test": "echo 'No tests specified'"
+    "server": "nodemon server.js"
   },
-  "author": "Gitesh Desai",
+  "author": "",
   "license": "ISC",
-  "description": "Furniro Backend API Server",
-  "keywords": [
-    "furniture",
-    "api",
-    "express",
-    "mongodb"
-  ],
+  "description": "",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcrypt": "^5.1.1",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
